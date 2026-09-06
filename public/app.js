@@ -457,7 +457,7 @@ function setSplit(percent) {
   try { localStorage.setItem('element-tree-percent', String(value)); } catch { /* storage unavailable */ }
 }
 if (extensionMode) {
-  setSplit(Number(localStorage.getItem('element-tree-percent')) || 46);
+  setSplit(Number(localStorage.getItem('element-tree-percent')) || 36);
   const splitter = $('#splitter'); let dragging = false;
   splitter.addEventListener('pointerdown', event => { dragging = true; splitter.setPointerCapture(event.pointerId); document.body.classList.add('is-resizing'); });
   splitter.addEventListener('pointermove', event => { if (!dragging) return; const bounds = $('.workbench').getBoundingClientRect(); setSplit(((event.clientY - bounds.top) / bounds.height) * 100); });

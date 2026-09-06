@@ -161,7 +161,19 @@
   .extension-mode .editor-tabs { padding: 0 4px; flex-wrap: wrap; overflow: visible; background: #f7f8f5; }
   .extension-mode .editor-tabs button { min-height: 31px; padding: 6px 8px; font-size: 9px; }
   .extension-mode .editor-panel { padding: 12px; }
-  .extension-mode .code-editor, .extension-mode .code-editor-fallback { min-height: 180px; height: max(180px, 27dvh); }
+  .extension-mode #panel-html { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+  .extension-mode #panel-html .editor-caption { margin-bottom: 0; }
+  .extension-mode .code-editor, .extension-mode .code-editor-fallback { min-height: 112px; height: 16dvh; max-height: 180px; }
+  .extension-mode .editor-bottom { margin-top: 0; align-items: center; }
+  .extension-mode .editor-bottom p { max-width: 46%; }
+  .extension-mode .ai-harness { order: -1; margin-top: 0; padding: 10px; border-radius: 4px; }
+  .extension-mode .ai-harness .editor-caption { margin-bottom: 4px; }
+  .extension-mode .ai-harness .field-help { display: none; }
+  .extension-mode .ai-harness form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
+  .extension-mode .ai-harness .ai-consent { grid-column: 1 / -1; font-size: 9px; }
+  .extension-mode .ai-harness button { min-height: 28px; }
+  .extension-mode .ai-result { max-height: 76px; margin-top: 6px; overflow: auto; }
+  .extension-mode .history-section { max-height: 48px; overflow: hidden; }
   .extension-mode .history-section { flex: 0 0 auto; padding: 0 12px 7px; }
   .extension-mode .history-heading { min-height: 42px; }
   .extension-mode #history { display: none; }

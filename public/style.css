@@ -88,9 +88,9 @@
   .code-editor-fallback { resize: vertical; padding: 18px; font: 12px/1.9 var(--mono); tab-size: 2; color: #3d5b45; overflow: auto; }
   .code-editor .monaco-editor, .code-editor .overflow-guard { border-radius: inherit; }
   .editor-bottom { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 13px; } .editor-bottom p { font-size: 10px; color: var(--muted); } .editor-bottom>div { display: flex; gap: 8px; } .editor-bottom button { font-size: 11px; } .editor-bottom kbd { margin-left: 6px; }
-  .ai-harness { margin-top: 28px; padding: 16px; border: 1px solid #cbded3; border-radius: 6px; background: #edf6f0; }
+  .ai-harness { margin-top: 28px; padding: 14px 0 4px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: transparent; }
   .ai-harness form { display: grid; gap: 10px; } .ai-harness label { display: grid; gap: 6px; font-size: 10px; color: var(--muted); } .ai-harness input { width: 100%; font: 11px var(--mono); } .ai-consent { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px; } .ai-consent input { width: 14px; height: 14px; accent-color: var(--green); } .ai-harness button { justify-self: start; font-size: 11px; }
-  .ai-result { display: block; margin-top: 12px; padding: 10px; border: 1px solid #cbded3; background: white; color: var(--ink); font: 11px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ai-result { display: block; margin-top: 12px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--ink); font: 11px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   .section-description { font-size: 12px; line-height: 1.7; color: var(--muted); margin-bottom: 20px; }
   .attribute-row { display: grid; grid-template-columns: minmax(90px,.8fr) minmax(100px,1.4fr) auto auto; gap: 8px; margin-bottom: 10px; align-items: center; }
   .attribute-row input { width: 100%; font: 11px var(--mono); } .attribute-row button { font-size: 11px; }
@@ -166,7 +166,7 @@
   .extension-mode .code-editor, .extension-mode .code-editor-fallback { min-height: 112px; height: 16dvh; max-height: 180px; }
   .extension-mode .editor-bottom { margin-top: 0; align-items: center; }
   .extension-mode .editor-bottom p { max-width: 46%; }
-  .extension-mode .ai-harness { order: -1; margin-top: 0; padding: 10px; border-radius: 4px; }
+  .extension-mode .ai-harness { order: -1; margin-top: 0; padding: 8px 0 2px; }
   .extension-mode .ai-harness .editor-caption { margin-bottom: 4px; }
   .extension-mode .ai-harness .field-help { display: none; }
   .extension-mode .ai-harness form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }

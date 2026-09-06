@@ -72,8 +72,8 @@
           <textarea id="html-editor-fallback" class="code-editor-fallback" spellcheck="false" aria-labelledby="html-editor-label" aria-describedby="html-help" wrap="off"></textarea>
           <div class="editor-bottom"><p id="html-help">Replaces this element and its children.</p><div><button id="reset-html" disabled>Revert draft</button><button id="save-html" class="primary" disabled>Apply HTML <kbd>Ctrl ↵</kbd></button></div></div>
           <section class="ai-harness" aria-labelledby="ai-heading">
-            <div class="editor-caption"><h3 id="ai-heading">AI Harness</h3><span>Reviewable plans only</span></div>
-            <p class="field-help">Ask for a change using the selected node. Page context is sent to your configured server only after consent.</p>
+            <div class="editor-caption"><h3 id="ai-heading">AI Harness</h3><span>Guided edit brief</span></div>
+            <p class="field-help">Describe the change for this node. The assistant returns a plan for your review before anything is applied.</p>
             <form id="ai-form"><label for="ai-prompt">Instruction<input id="ai-prompt" name="prompt" placeholder="Make this heading more confident" maxlength="4000" required></label><label class="ai-consent"><input id="ai-consent" type="checkbox" required> I consent to sending this page context to the AI server.</label><button class="primary" type="submit">Generate plan</button></form>
             <output id="ai-result" class="ai-result" aria-live="polite" hidden></output>
           </section>

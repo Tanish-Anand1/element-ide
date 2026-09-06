@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Element / live DOM instrument</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%232d6050'/%3E%3Ctext x='8' y='28' fill='white' font-size='26' font-family='monospace'%3EE%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/vendor/monaco/vs/loader.js"></script>
+  <script src="/editor.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#inspector">Skip to inspector</a>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="Element home"><span class="brand-mark" aria-hidden="true">[e]</span> element<span class="brand-slash">/</span><span class="brand-caption">DOM workbench · live instrument</span></a>
+    <div class="masthead-actions"><span id="connection-state" class="connection-state">Not connected</span><button id="help-button" class="quiet">Setup guide <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <div class="connection-bar">
+    <span class="port-label">BROWSER <span id="port-label">:9222</span></span>
+    <label class="sr-only" for="target-select">Browser tab to inspect</label>
+    <select id="target-select"><option value="">Choose a browser tab</option></select>
+    <button id="refresh-targets" title="Refresh available browser tabs">Refresh tabs</button>
+    <button id="connect-button" class="primary" disabled>Connect <span aria-hidden="true">↗</span></button>
+    <button id="disconnect-button" hidden>Disconnect</button>
+  </div>
+  <div id="notice" class="notice" role="status" aria-live="polite">Ready when you are. Attach Element to the tab you want to shape.</div>
+  <div id="paused-banner" class="paused-banner" role="status" hidden><span>JavaScript paused on a DOM breakpoint.</span><button id="resume-button" class="primary">Resume page</button></div>
+  <main class="workbench">
+    <section class="tree-pane" aria-labelledby="tree-heading">
+      <div class="pane-heading"><h1 id="tree-heading">Elements</h1><div class="pane-actions"><button id="pick-button" disabled aria-pressed="false" title="Pick an element in the live page">Pick</button><button id="refresh-dom" disabled title="Refresh the document tree">↻ <span class="sr-only">Refresh tree</span></button><button id="port-settings" title="Change the local IDE port">Port</button></div></div>
+      <div class="tree-search"><span aria-hidden="true">⌕</span><label class="sr-only" for="tree-search">Find tag, ID, class or text</label><input id="tree-search" type="search" placeholder="Find tag, #id, .class…" disabled><kbd>/</kbd></div>
+      <div id="tree-empty" class="tree-empty"><span class="empty-code" aria-hidden="true">&lt; / &gt;</span><h2>Your page, unfolded.</h2><p>Connect a tab to explore its DOM.<br>Hover a node to see it on the live page.</p><span class="tree-instruction">A direct line to the browser.</span></div>
+      <div id="tree" role="tree" aria-label="Document nodes" tabindex="0" hidden></div>
+      <div class="tree-footer"><span id="node-count">No document loaded</span><span title="Double-click text to edit it live">Double-click text to edit</span></div>
+    </section>
+    <div id="splitter" class="splitter" role="separator" aria-label="Resize Elements tree and editor" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="70" aria-valuenow="46" tabindex="0"></div>
+    <section id="inspector" class="inspector-pane" aria-labelledby="inspector-heading" tabindex="-1">
+      <div class="pane-heading inspector-heading"><h2 id="inspector-heading">Details</h2><span class="live-label">Live and temporary</span></div>
+      <div id="inspector-empty" class="inspector-empty">
+        <span class="eyebrow">THE BROWSER IS YOUR CANVAS</span>
+        <h2>Inspect the details.<br>Make a live change.</h2>
+        <p>Select an element to edit its markup, attributes and styles. Every edit stays in your session, ready to undo.</p>
+        <ol class="intro-steps"><li><span>01</span> Click the Element extension on the current tab.</li><li><span>02</span> The side panel connects automatically.</li><li><span>03</span> Pick an element or choose it in the tree.</li></ol>
+        <button id="empty-setup" class="text-button">Open the setup guide <span aria-hidden="true">→</span></button>
+        <p class="persistence-note">Live edits are temporary. Reloading the page restores the original source.</p>
+      </div>
+      <div id="selected-content" hidden>
+        <nav id="breadcrumbs" class="breadcrumbs" aria-label="DOM ancestry"></nav>
+        <div class="selection-summary"><div><span class="eyebrow">SELECTED NODE</span><h2 id="selected-label"></h2><p id="selected-meta"></p></div><span id="dimensions" class="dimensions"></span></div>
+        <div id="pseudo-toolbar" class="pseudo-toolbar" aria-label="Force element state">
+          <span>:state</span>
+          <label><input type="checkbox" value="hover"> :hover</label>
+          <label><input type="checkbox" value="active"> :active</label>
+          <label><input type="checkbox" value="focus"> :focus</label>
+          <label><input type="checkbox" value="focus-visible"> :focus-visible</label>
+        </div>
+        <div class="editor-tabs" role="tablist" aria-label="Element editor">
+          <button role="tab" id="tab-html" aria-selected="true" aria-controls="panel-html" data-tab="html">Markup</button>
+          <button role="tab" id="tab-styles" aria-selected="false" aria-controls="panel-styles" data-tab="styles" tabindex="-1">Styles</button>
+          <button role="tab" id="tab-computed" aria-selected="false" aria-controls="panel-computed" data-tab="computed" tabindex="-1">Computed</button>
+          <button role="tab" id="tab-layout" aria-selected="false" aria-controls="panel-layout" data-tab="layout" tabindex="-1">Layout</button>
+          <button role="tab" id="tab-events" aria-selected="false" aria-controls="panel-events" data-tab="events" tabindex="-1">Listeners</button>
+          <button role="tab" id="tab-accessibility" aria-selected="false" aria-controls="panel-accessibility" data-tab="accessibility" tabindex="-1">Accessibility</button>
+          <button role="tab" id="tab-breakpoints" aria-selected="false" aria-controls="panel-breakpoints" data-tab="breakpoints" tabindex="-1">Breakpoints</button>
+          <button role="tab" id="tab-attributes" aria-selected="false" aria-controls="panel-attributes" data-tab="attributes" tabindex="-1">Attributes <span id="attribute-count"></span></button>
+        </div>
+        <section id="panel-html" role="tabpanel" aria-labelledby="tab-html" class="editor-panel">
+          <div class="editor-caption"><span id="html-editor-label">outerHTML</span><span id="html-dirty">Saved in page</span></div>
+          <div id="html-editor" class="code-editor" aria-labelledby="html-editor-label" hidden></div>
+          <textarea id="html-editor-fallback" class="code-editor-fallback" spellcheck="false" aria-labelledby="html-editor-label" aria-describedby="html-help" wrap="off"></textarea>
+          <div class="editor-bottom"><p id="html-help">Replaces this element and its children.</p><div><button id="reset-html" disabled>Revert draft</button><button id="save-html" class="primary" disabled>Apply HTML <kbd>Ctrl ↵</kbd></button></div></div>
+        </section>
+        <section id="panel-attributes" role="tabpanel" aria-labelledby="tab-attributes" class="editor-panel" hidden>
+          <p class="section-description">Element attributes. Save each row to apply it to the page.</p><div id="attributes"></div>
+          <form id="add-attribute" class="add-form"><h3>Add an attribute</h3><div class="form-fields"><label>Name<input name="name" placeholder="data-label" required></label><label>Value<input name="value" placeholder="Attribute value"></label><button class="primary" type="submit">Add</button></div></form>
+        </section>
+        <section id="panel-styles" role="tabpanel" aria-labelledby="tab-styles" class="editor-panel" hidden>
+          <div class="editor-caption"><h3>element.style</h3><span>Inline declarations</span></div><div id="inline-styles"></div>
+          <form id="add-style" class="add-form"><h3>Set an inline style</h3><div class="form-fields"><label>Property<input name="property" placeholder="background-color" required></label><label>Value<input name="value" placeholder="#e8ede8"></label><label class="priority-label"><input name="important" type="checkbox"> !important</label><button class="primary" type="submit">Apply</button></div><p class="field-help">Use CSS names like font-size. An empty value removes the property.</p></form>
+          <section class="matched-section" aria-labelledby="matched-heading"><div class="editor-caption"><h3 id="matched-heading">Matched CSS rules <span id="matched-count"></span></h3><span>Edit selector or declarations</span></div><div id="matched-rules"></div></section>
+        </section>
+        <section id="panel-computed" role="tabpanel" aria-labelledby="tab-computed" class="editor-panel" hidden>
+          <label class="filter-label" for="computed-filter">Filter computed styles<input id="computed-filter" type="search" placeholder="Search property or value…"></label><div id="computed-styles" class="computed-list"></div>
+        </section>
+        <section id="panel-layout" role="tabpanel" aria-labelledby="tab-layout" class="editor-panel" hidden><div id="layout-details" class="lazy-panel"><p class="field-help">Open this pane to load the box model.</p></div></section>
+        <section id="panel-events" role="tabpanel" aria-labelledby="tab-events" class="editor-panel" hidden><div id="event-listeners" class="lazy-panel"><p class="field-help">Open this pane to load event listeners.</p></div></section>
+        <section id="panel-accessibility" role="tabpanel" aria-labelledby="tab-accessibility" class="editor-panel" hidden><div id="accessibility-details" class="lazy-panel"><p class="field-help">Open this pane to load the accessibility tree.</p></div></section>
+        <section id="panel-breakpoints" role="tabpanel" aria-labelledby="tab-breakpoints" class="editor-panel" hidden><p class="section-description">Pause JavaScript when this node changes. Resume from the banner when a breakpoint fires.</p><div id="dom-breakpoints" class="lazy-panel"></div></section>
+      </div>
+      <section class="history-section" aria-labelledby="history-heading"><div class="history-heading"><h2 id="history-heading">Session changes <span id="history-count">0</span></h2><button id="undo-button" disabled>↶ Undo last edit</button></div><div id="history"><p class="history-empty">No edits yet. Your changes will appear here.</p></div></section>
+    </section>
+  </main>
+  <footer class="status-bar"><span><span class="status-dot" id="status-dot"></span><span id="footer-status">Waiting for browser</span></span><span>Local session <span class="footer-separator">/</span> Chrome DevTools Protocol</span></footer>
+  <dialog id="setup-dialog" aria-labelledby="setup-heading"><div class="dialog-heading"><span class="eyebrow">CONNECT YOUR BROWSER</span><button id="close-setup" aria-label="Close setup guide">✕</button></div><h2 id="setup-heading">Use the browser<br>you are signed into.</h2><p>Load the project’s <code>extension</code> folder as an unpacked extension. Open the page you want to edit and click Element in the browser toolbar. The Elements workspace opens beside that exact tab and connects automatically.</p><p>The extension asks for Chrome’s debugger permission because that API can inspect and mutate the selected tab. Chrome displays a debugging banner while it is attached.</p><details><summary>Use an isolated debugging browser instead</summary><p>Launch a separate Chrome, Edge, Brave, Vivaldi or Chromium profile:</p><pre><code>npm run browser</code></pre><p>Refresh the tab list here and connect.</p></details><p class="field-help">The extension works with Chromium browsers. Browser settings pages cannot be inspected. Firefox and Safari need separate adapters. Reloading or navigating clears edits and undo history.</p><a href="/playground.html" target="_blank" rel="noopener" class="text-button">Open the practice page →</a></dialog>
+  <dialog id="discard-dialog" aria-labelledby="discard-heading"><h2 id="discard-heading">Leave your unsaved draft?</h2><p>Your HTML draft or field changes have not been applied to the live page.</p><div class="dialog-buttons"><button id="keep-draft">Keep editing</button><button id="discard-draft" class="primary">Discard draft</button></div></dialog>
+</body>
+</html>

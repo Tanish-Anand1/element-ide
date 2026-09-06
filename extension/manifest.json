@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Element IDE",
+  "version": "1.0.0",
+  "description": "Inspect and edit the current signed-in browser tab in the local Element IDE.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "debugger", "storage", "sidePanel"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Inspect this tab in Element IDE"
+  },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*; frame-src http://127.0.0.1:* http://localhost:*"
+  }
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Element IDE</title>
+  <link rel="stylesheet" href="sidepanel.css">
+  <script src="sidepanel.js" type="module"></script>
+</head>
+<body>
+  <header>
+    <span class="brand">[e] element</span>
+    <button id="connection-button" type="button" aria-expanded="false" aria-controls="connection-panel">Port <span id="port-label">3000</span></button>
+  </header>
+  <form id="connection-panel" hidden>
+    <label for="server-port">Local IDE port</label>
+    <div class="port-row"><input id="server-port" inputmode="numeric" value="3000"><button type="submit">Reconnect</button></div>
+    <p id="status" role="status" aria-live="polite">Run <code>npm start</code>, then reconnect.</p>
+  </form>
+  <iframe id="ide" title="Element IDE Elements panel"></iframe>
+</body>
+</html>

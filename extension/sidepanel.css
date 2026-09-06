@@ -1,0 +1,19 @@
+:root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; color: #202a26; background: #202724; }
+* { box-sizing: border-box; }
+body { margin: 0; height: 100vh; display: grid; grid-template-rows: 34px auto 1fr; overflow: hidden; }
+body.connected { grid-template-rows: 1fr; }
+body.connected header, body.connected #connection-panel { display: none; }
+body.disconnected { grid-template-rows: 34px auto 1fr; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 11px; border-bottom: 1px solid #39413d; background: #202724; color: #dce7df; }
+.brand { font: 600 11px "Cascadia Code", Consolas, monospace; color: #b5d4ae; }
+button, input { font: inherit; }
+button { min-height: 26px; border: 1px solid #526058; border-radius: 3px; background: transparent; color: #dce7df; padding: 3px 8px; cursor: pointer; }
+button:hover { background: #354139; }
+#connection-panel { padding: 12px; background: #f7f8f5; border-bottom: 1px solid #d9dfd8; }
+label { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; }
+.port-row { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+input { min-width: 0; padding: 7px 8px; border: 1px solid #c8d0c8; border-radius: 3px; }
+#connection-panel button { color: white; background: #2d6050; border-color: #2d6050; }
+#status { min-height: 16px; margin: 8px 0 0; color: #66716b; font-size: 11px; line-height: 1.4; }
+iframe { width: 100%; height: 100%; border: 0; background: #fafbf8; }
+:focus-visible { outline: 2px solid #71a98f; outline-offset: 2px; }

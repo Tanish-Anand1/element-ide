@@ -1,0 +1,26 @@
+{
+  "name": "element-inspector-ide",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A local Monaco-powered DOM editing workbench for Chromium browser tabs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev": "node --watch --env-file=.env server.js",
+    "check": "node --check server.js && node --check cdp.js && node --check ai-harness.js && node --check extension-bridge.js && node --check public/editor.js && node --check public/monaco-worker.js && node --check public/app.js && node --check scripts/launch-browser.js && node --check extension/background.js && node --check extension/sidepanel.js",
+    "test": "node --test test/*.test.js",
+    "test:live": "node scripts/verify-live.js",
+    "test:ui": "node scripts/verify-ui.js",
+    "browser": "node scripts/launch-browser.js",
+    "chrome": "node scripts/launch-browser.js"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.33.3",
+    "express": "^5.1.0",
+    "monaco-editor": "^0.52.2",
+    "ws": "^8.21.3"
+  }
+}

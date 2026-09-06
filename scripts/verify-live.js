@@ -139,6 +139,13 @@ try {
   await undo(); assert.match(await evaluate('document.querySelector("#sample-title").textContent'), /^Good things take/);
   console.log('PASS: live text preview, cancel, single-entry commit, direct text editing and undo');
 
+  await evaluate(`(() => { window.addEventListener('resize', () => { const title = document.querySelector('#sample-title'); if (!title || title.dataset.resizeRebuilt) return; const replacement = title.cloneNode(true); replacement.dataset.resizeRebuilt = 'true'; title.replaceWith(replacement); }, { once: true }); })()`);
+  await edit('attribute', 'sample-title', { name: 'data-survives-resize', value: 'yes' });
+  await client.Emulation.setDeviceMetricsOverride({ width: 960, height: 720, deviceScaleFactor: 1, mobile: false });
+  await waitFor(() => evaluate('document.querySelector("#sample-title").dataset.survivesResize === "yes"'));
+  await undo(); assert.equal(await evaluate('document.querySelector("#sample-title").hasAttribute("data-survives-resize")'), false);
+  console.log('PASS: session edits survive responsive node replacement and undo after re-render');
+
   // The earlier attribute edit must remain undoable after replacing and restoring its ancestor.
   const original = await evaluate('document.querySelector("#sample-card").outerHTML');
   await edit('attribute', 'sample-title', { name: 'data-retained', value: 'yes' });

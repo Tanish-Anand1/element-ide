@@ -40,6 +40,8 @@ export class Inspector extends EventEmitter {
     this.textDrafts = new Map();
     this.breakpoints = new Map();
     this.pseudoStates = new Map();
+    this.mainFrameId = null;
+    this.reapplyTimer = null;
     this.paused = false;
     this.queue = Promise.resolve();
     this.extensionBridge = extensionBridge;
@@ -63,6 +65,8 @@ export class Inspector extends EventEmitter {
   }
   state() { return { connected: !!this.client, target: this.target, session: this.session, historyCount: this.history.length, cdpPort: this.port, paused: this.paused }; }
   invalidate(reason) {
+    clearTimeout(this.reapplyTimer);
+    this.reapplyTimer = null;
     this.session = randomUUID();
     this.history = [];
     this.textDrafts.clear();
@@ -96,6 +100,10 @@ export class Inspector extends EventEmitter {
       await client.Runtime.enable();
       await client.Overlay.enable();
       await client.Page.enable();
+      if (target.transport !== 'extension') {
+        try { ({ frameTree: { frame: { id: this.mainFrameId } } } = await client.Page.getFrameTree()); }
+        catch { this.mainFrameId = null; }
+      }
       await client.Accessibility.enable();
       await client.Debugger.enable();
       this.client = client;
@@ -108,11 +116,15 @@ export class Inspector extends EventEmitter {
       });
       client.DOM.documentUpdated(() => {
         if (this.client !== client) return;
-        this.invalidate('document');
-        void client.Runtime.releaseObjectGroup({ objectGroup: 'inspector-history' }).catch(() => {});
+        this.scheduleReapply();
       });
       client.Page.frameNavigated(({ frame }) => {
-        if (this.client === client && !frame.parentId) this.target = { ...this.target, url: frame.url };
+        if (this.client !== client || frame.parentId) return;
+        if (!this.mainFrameId) { this.mainFrameId = frame.id; this.target = { ...this.target, url: frame.url }; return; }
+        if (frame.id !== this.mainFrameId) return;
+        this.target = { ...this.target, url: frame.url };
+        this.invalidate('document');
+        void client.Runtime.releaseObjectGroup({ objectGroup: 'inspector-history' }).catch(() => {});
       });
       client.Debugger.paused(details => {
         if (this.client !== client) return;
@@ -146,6 +158,7 @@ export class Inspector extends EventEmitter {
     const client = this.client;
     this.client = null;
     this.target = null;
+    this.mainFrameId = null;
     this.invalidate('disconnected');
     if (client) {
       await client.Overlay.setInspectMode({ mode: 'none', highlightConfig }).catch(() => {});
@@ -185,6 +198,70 @@ export class Inspector extends EventEmitter {
     const result = await this.requireClient().Runtime.callFunctionOn({ objectId, functionDeclaration, arguments: args.map(value => ({ value })), returnByValue });
     if (result.exceptionDetails) throw new InspectorError(result.exceptionDetails.exception?.description?.split('\n')[0] || 'The page rejected this operation.', 409);
     return returnByValue ? result.result.value : result.result;
+  }
+  async captureLocator(objectId) {
+    return this.call(objectId, `function() {
+      const element = this.nodeType === 1 ? this : this.parentElement;
+      if (!element) throw Error('This node has no element parent.');
+      const escape = value => CSS.escape(value);
+      const path = node => {
+        if (node.id) return '#' + escape(node.id);
+        const parts = [];
+        for (let current = node; current && current.nodeType === 1; current = current.parentElement) {
+          let part = current.localName;
+          const siblings = [...(current.parentElement?.children || [])].filter(sibling => sibling.localName === current.localName);
+          if (siblings.length > 1) part += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
+          parts.unshift(part);
+          if (current === document.documentElement) break;
+        }
+        return parts.join(' > ');
+      };
+      return { selector: path(element), childIndex: this.nodeType === 1 ? null : [...element.childNodes].indexOf(this), nodeType: this.nodeType };
+    }`);
+  }
+  async patchRuntime(patches, mode = 'apply') {
+    const global = await this.client.Runtime.evaluate({ expression: 'globalThis', objectGroup: 'inspector-patches' });
+    try {
+      return await this.call(global.result.objectId, `function(patches, mode) {
+        const nodeFor = patch => {
+          const element = document.querySelector(patch.locator.selector);
+          return patch.locator.childIndex === null ? element : element?.childNodes[patch.locator.childIndex];
+        };
+        let applied = 0; const skipped = [];
+        for (const patch of patches) {
+          const node = nodeFor(patch);
+          if (!node || (patch.locator.nodeType !== node.nodeType)) { skipped.push(patch.id); continue; }
+          const value = mode === 'undo' ? patch.before : patch.after;
+          if (patch.kind === 'text') {
+            if (node.nodeValue !== value) { node.nodeValue = value; applied++; }
+          } else if (node.nodeType === 1 && patch.kind === 'attribute') {
+            const name = mode === 'undo' ? patch.beforeName : patch.name;
+            const remove = mode === 'undo' ? patch.afterName : patch.oldName;
+            if (remove && remove !== name) node.removeAttribute(remove);
+            if (value === null) node.removeAttribute(name); else node.setAttribute(name, value);
+            applied++;
+          } else if (node.nodeType === 1 && patch.kind === 'style') {
+            if (value.value) node.style.setProperty(patch.property, value.value, value.priority || ''); else node.style.removeProperty(patch.property);
+            applied++;
+          } else if (node.nodeType === 1 && patch.kind === 'html') {
+            if (node.outerHTML !== value) { node.outerHTML = value; applied++; }
+          } else skipped.push(patch.id);
+        }
+        return { applied, skipped };
+      }`, [patches, mode]);
+    } finally { await this.client.Runtime.releaseObject({ objectId: global.result.objectId }).catch(() => {}); }
+  }
+  scheduleReapply() {
+    clearTimeout(this.reapplyTimer);
+    this.reapplyTimer = setTimeout(() => {
+      this.reapplyTimer = null;
+      void this.run(async () => {
+        const patches = this.history.map(entry => entry.patch).filter(Boolean);
+        if (!patches.length || !this.client) return;
+        const result = await this.patchRuntime(patches);
+        if (result.applied || result.skipped.length) this.emit('update', { type: 'reapplied', applied: result.applied, skipped: result.skipped.length, ...this.state() });
+      }).catch(error => this.emit('update', { type: 'notice', message: error.message }));
+    }, 150);
   }
   async details(input) {
     const node = await this.node(input);
@@ -264,7 +341,7 @@ export class Inspector extends EventEmitter {
     this.assertSession(session);
     if (this.paused) await this.client.Debugger.resume();
   }
-  publicHistory() { return this.history.map(({ objectId, ...entry }) => entry); }
+  publicHistory() { return this.history.map(({ objectId, patch, ...entry }) => entry); }
   async edit(kind, input) {
     const node = await this.node(input);
     if (kind === 'text') return this.editText(node, input);
@@ -281,6 +358,8 @@ export class Inspector extends EventEmitter {
     let bookmark;
     try {
       const selector = await this.call(object.objectId, `function() { let s = this.localName; if (this.id) return s + '#' + this.id; if (this.classList.length) s += '.' + [...this.classList].join('.'); return s; }`);
+      const locator = await this.captureLocator(object.objectId);
+      const styleBefore = kind === 'style' ? await this.call(object.objectId, 'function(property) { return { value: this.style.getPropertyValue(property), priority: this.style.getPropertyPriority(property) }; }', [input.property]) : null;
       if (kind === 'html') {
         bookmark = await this.call(object.objectId, `function() {
           if (!this.parentNode || this === this.ownerDocument.documentElement) throw Error('The document root cannot be replaced. Choose a child element.');
@@ -337,7 +416,13 @@ export class Inspector extends EventEmitter {
         await client.Runtime.releaseObject({ objectId: bookmark.objectId });
         return { changed: false, session, tree: await this.getDocument(), backendNodeId: node.backendNodeId, history: this.publicHistory() };
       }
-      this.history.push({ id: randomUUID(), timestamp: new Date().toISOString(), kind, selector, property: renamed ? `${input.oldName} → ${input.name}` : input.property || input.name || 'outerHTML', before, after, objectId: bookmark.objectId });
+      const id = randomUUID();
+      const patch = kind === 'html'
+        ? { id, kind, locator, before, after: input.outerHTML }
+        : kind === 'style'
+          ? { id, kind, locator, property: input.property, before: styleBefore, after: { value: input.value, priority: input.priority || '' } }
+          : { id, kind, locator, name: input.name, oldName: input.oldName || null, beforeName: input.oldName || input.name, afterName: input.name, before, after };
+      this.history.push({ id, timestamp: new Date().toISOString(), kind, selector, property: renamed ? `${input.oldName} → ${input.name}` : input.property || input.name || 'outerHTML', before, after, objectId: bookmark.objectId, patch });
       const selected = await this.call(bookmark.objectId, `function() { return this.inserted ? (this.inserted.find(n => n.nodeType === 1) || this.parent) : this.node; }`, [], false);
       let backendNodeId = null;
       try { ({ node: { backendNodeId } } = await client.DOM.describeNode({ objectId: selected.objectId })); }
@@ -355,13 +440,15 @@ export class Inspector extends EventEmitter {
     if (this.history.length >= 100) throw new InspectorError('This session has reached 100 edits. Undo edits or reconnect to start a new log.', 409);
     const client = this.client; const session = this.session;
     const { object } = await client.DOM.resolveNode({ nodeId: node.nodeId, objectGroup: 'inspector-history' });
+    const locator = await this.captureLocator(object.objectId);
     const bookmark = await this.call(object.objectId, 'function() { return { node: this, before: this.nodeValue, after: null }; }', [], false);
     try {
       const before = await this.call(bookmark.objectId, 'function() { return this.before; }');
       if (before === input.value) { await client.Runtime.releaseObject({ objectId: bookmark.objectId }); return { changed: false, session, tree: await this.getDocument(), backendNodeId: node.backendNodeId, history: this.publicHistory() }; }
       await client.DOM.setNodeValue({ nodeId: node.nodeId, value: input.value });
       await this.call(bookmark.objectId, 'function() { this.after = this.node.nodeValue; }');
-      this.history.push({ id: randomUUID(), timestamp: new Date().toISOString(), kind: 'text', selector: node.nodeName, property: 'nodeValue', before, after: input.value, objectId: bookmark.objectId, undoType: 'text' });
+      const id = randomUUID();
+      this.history.push({ id, timestamp: new Date().toISOString(), kind: 'text', selector: node.nodeName, property: 'nodeValue', before, after: input.value, objectId: bookmark.objectId, undoType: 'text', patch: { id, kind: 'text', locator, before, after: input.value } });
       this.emit('update', { type: 'history', historyCount: this.history.length, session });
       return { changed: true, session, tree: await this.getDocument(), backendNodeId: node.backendNodeId, history: this.publicHistory() };
     } catch (error) {
@@ -411,7 +498,12 @@ export class Inspector extends EventEmitter {
       await this.client.Runtime.releaseObject({ objectId: draft.objectId }).catch(() => {});
       throw new InspectorError('This session has reached 100 edits. The text preview was reverted.', 409);
     }
-    this.history.push({ id: randomUUID(), timestamp: new Date().toISOString(), kind: 'text', selector: '#text', property: 'nodeValue', before: values.before, after: values.after, objectId: draft.objectId, undoType: 'text' });
+    const { object } = await this.client.DOM.resolveNode({ backendNodeId: draft.backendNodeId, objectGroup: 'inspector-history' });
+    let locator;
+    try { locator = await this.captureLocator(object.objectId); }
+    finally { await this.client.Runtime.releaseObject({ objectId: object.objectId }).catch(() => {}); }
+    const id = randomUUID();
+    this.history.push({ id, timestamp: new Date().toISOString(), kind: 'text', selector: '#text', property: 'nodeValue', before: values.before, after: values.after, objectId: draft.objectId, undoType: 'text', patch: { id, kind: 'text', locator, before: values.before, after: values.after } });
     this.emit('update', { type: 'history', historyCount: this.history.length, session: this.session });
     return { changed: true, session: this.session, tree: await this.getDocument(), backendNodeId: draft.backendNodeId, history: this.publicHistory() };
   }
@@ -449,6 +541,17 @@ export class Inspector extends EventEmitter {
       this.history.pop();
       this.emit('update', { type: 'history', historyCount: this.history.length, session });
       return { tree: await this.getDocument(), backendNodeId: null, history: this.publicHistory(), session };
+    }
+    if (entry.patch && entry.patch.kind !== 'html') {
+      const connected = await this.call(entry.objectId, 'function() { return !!this.node?.isConnected; }').catch(() => false);
+      if (!connected) {
+        const result = await this.patchRuntime([entry.patch], 'undo');
+        if (!result.applied) throw new InspectorError('Undo conflict: the page rebuilt this element and it could not be located safely.', 409);
+        this.history.pop();
+        await this.client.Runtime.releaseObject({ objectId: entry.objectId }).catch(() => {});
+        this.emit('update', { type: 'history', historyCount: this.history.length, session });
+        return { tree: await this.getDocument(), backendNodeId: null, history: this.publicHistory(), session };
+      }
     }
     const selected = await this.call(entry.objectId, `function() {
       if (this.node && Object.prototype.hasOwnProperty.call(this, 'after') && !this.name && !this.inserted) {

@@ -490,6 +490,14 @@ events.onmessage = async event => {
     state.picking = false; syncControls(); if (data.session !== state.session || !(await discardDraft())) return;
     await action(async () => { setTree(data.tree); const node = state.nodes.get(data.nodeId); if (node) { expandAncestors(node); await selectNode(node); revealSelected(); } });
   } else if (data.type === 'paused' || data.type === 'resumed') { state.paused = data.type === 'paused'; syncControls(); notice(state.paused ? `Page paused on ${data.reason || 'a DOM breakpoint'}.` : 'Page resumed.', state.paused ? '' : 'success'); }
+  else if (data.type === 'reapplied') {
+    if (data.session !== state.session) return;
+    const selected = state.selected?.backendNodeId;
+    const result = await api('/dom'); setTree(result.tree);
+    const node = [...state.nodes.values()].find(candidate => candidate.backendNodeId === selected);
+    if (node) { expandAncestors(node); await selectNode(node); revealSelected(); }
+    notice(data.applied ? `Reapplied ${data.applied} session edit${data.applied === 1 ? '' : 's'} after the page re-rendered.` : 'The page re-rendered; your session edit is still current.', 'success');
+  }
   else if (data.type === 'notice') notice(data.message, 'error');
   else if (data.type === 'history' && !state.busy) { try { state.history = await api('/history'); renderHistory(); } catch (error) { notice(error.message, 'error'); } }
   else if (data.type === 'targets' && !state.busy) void action(() => refreshTargets({ connectExtension: true }));

@@ -327,6 +327,13 @@ $('#save-html').onclick = () => {
   if ([3, 8].includes(state.selected?.nodeType)) void finishMonacoTextEdit('commit');
   else void edit('html', { outerHTML: htmlEditor.getValue() });
 };
+$('#ai-form').onsubmit = event => { event.preventDefault(); void action(async () => {
+  if (!state.connected || !state.selected || !state.details) throw new Error('Connect to a signed-in tab first. Click the Element extension on that tab, then select a node.');
+  const prompt = $('#ai-prompt').value.trim(); const consent = $('#ai-consent').checked; const output = $('#ai-result'); output.hidden = false; output.textContent = 'Thinking through a safe edit plan…';
+  const result = await api('/api/v1/ai/plan', { consent, prompt, context: state.details.outerHTML || '', sessionNodeId: state.selected.nodeId });
+  output.textContent = `${result.summary}\n\n${(result.actions || []).map((item, index) => `${index + 1}. ${item.type} on node ${item.nodeId}: ${item.reason}`).join('\n') || 'No changes suggested.'}`;
+  notice('AI plan ready for review. No browser change was applied.', 'success');
+}); };
 $('#reset-html').onclick = () => {
   if (state.monacoTextEdit) void finishMonacoTextEdit('cancel');
   else { state.dirty = false; renderSelection(); }
